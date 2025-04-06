@@ -1,16 +1,19 @@
+# main.py
 from problemas.plano_uso_equipamento import PlanoUsoEquipamento
 from geneticos.algoritmo_genetico_individuo import AlgoritmoGeneticoIndividuo
 
-# Create an initial individual (random equipment usage plan)
+# Cria um indivíduo (plano de uso de equipamentos aleatório)
 individuo = PlanoUsoEquipamento()
 
-# Run the genetic algorithm
-genetico = AlgoritmoGeneticoIndividuo(individuo)
-individuo_adaptado = genetico.rodar(max_geracoes=1000, imprimir_em_geracaoes=100)
+# Executa o algoritmo genético
+gen = AlgoritmoGeneticoIndividuo(individuo)
+individuo_adaptado = gen.rodar(max_geracoes=1000, imprimir_em_geracaoes=100)
 
-# Print results
-print("\nBest adapted solution found:")
-print(f"Total generations: {genetico.qtd_geracoes()}")
-print(f"Final error: {genetico.erro_final()}")
+# Imprime os resultados
+print("\nMelhor solução adaptada:")
+print(f"Total de gerações: {gen.qtd_geracoes()}")
+print(f"Erro final: {gen.erro_final()}")
 print(individuo_adaptado.imprime())
+
+
 

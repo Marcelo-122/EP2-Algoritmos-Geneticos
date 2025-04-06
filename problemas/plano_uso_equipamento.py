@@ -3,7 +3,7 @@ from collections import defaultdict
 
 # Constantes
 DIAS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta"]
-HORARIOS = [f"{h:02d}:00" for h in range(8, 18)]  # Das 08:00 às 17:00
+HORARIOS = [f"{h:02d}:00" for h in range(8, 19)]  # Das 08:00 às 18:00
 LIMITES_DIARIOS = {
     "Balança Analítica": 6,
     "Agitador Magnético": 4,
@@ -15,6 +15,7 @@ LIMITES_DIARIOS = {
     "Microscópio": 6,
 }
 
+# Restrições
 EQUIPAMENTOS_POR_ANALISE = {
     "Análise 1": ["Espectrofotômetro UV-VIS", "Cromatógrafo Gasoso"],
     "Análise 2": ["Cromatógrafo Líquido", "Espectrômetro Infravermelho"],
@@ -28,7 +29,7 @@ EQUIPAMENTOS_POR_ANALISE = {
     "Análise 10": ["Espectrômetro de Massa", "Cromatógrafo Gasoso"],
 }
 
-
+# Classe do problema
 class PlanoUsoEquipamento:
     def __init__(self, analises_alocadas=None):
         self.analises = list(EQUIPAMENTOS_POR_ANALISE.keys())
@@ -52,39 +53,25 @@ class PlanoUsoEquipamento:
 
     def fitness(self):
         penalidade = 0
-        uso_equipamentos = defaultdict(lambda: defaultdict(int))
-        conflitos_temporais = defaultdict(set)
+        uso_equipamentos_dia = defaultdict(lambda: defaultdict(int))  # equipamento -> dia -> horas usadas
+        uso_equipamentos_hora = defaultdict(set)  # (dia, horario) -> equipamentos em uso
 
-        # Verificar restrições
         for analise, info in self.analises_alocadas.items():
             dia = info["dia"]
             horario = info["horario"]
+            equipamentos = info["equipamentos"]
 
-            # Verificar equipamentos simultâneos
-            for equipamento in info["equipamentos"]:
-                # Contagem de uso diário
-                uso_equip_dia = uso_equipamentos[equipamento][dia]
-                if uso_equip_dia >= LIMITES_DIARIOS[equipamento]:
-                    penalidade += 100  # Penalidade por hora excedida
+            for equipamento in equipamentos:
+                # Verificar uso simultâneo do equipamento no mesmo horário
+                if equipamento in uso_equipamentos_hora[(dia, horario)]:
+                    penalidade += 200  # Equipamento já em uso no mesmo horário
                 else:
-                    uso_equipamentos[equipamento][dia] += 1
+                    uso_equipamentos_hora[(dia, horario)].add(equipamento)
 
-                # Verificar conflitos de horário
-                chave = (equipamento, dia, horario)
-                if chave in conflitos_temporais:
-                    penalidade += 200  # Conflito no mesmo equipamento/horário
-                conflitos_temporais[chave].add(analise)
-
-        # Verificar sincronização de equipamentos para a mesma análise
-        for analise, info in self.analises_alocadas.items():
-            if len(info["equipamentos"]) > 1:
-                # Todos equipamentos devem estar no mesmo dia/horário
-                equipamentos = info["equipamentos"]
-                primeira_chave = (equipamentos[0], info["dia"], info["horario"])
-                for equip in equipamentos[1:]:
-                    chave = (equip, info["dia"], info["horario"])
-                    if chave not in conflitos_temporais:
-                        penalidade += 300  # Equipamentos não sincronizados
+                # Verificar limite diário
+                uso_equipamentos_dia[equipamento][dia] += 1
+                if uso_equipamentos_dia[equipamento][dia] > LIMITES_DIARIOS[equipamento]:
+                    penalidade += 100  # Excedeu o limite diário
 
         return 1 / (1 + penalidade)
 
@@ -110,45 +97,10 @@ class PlanoUsoEquipamento:
                 novo_aloc[analise] = outro.analises_alocadas[analise]
         return PlanoUsoEquipamento(novo_aloc)
 
-    def mostrar_plano(self):
+    def imprime(self):
         for analise, info in self.analises_alocadas.items():
             print(f"{analise}:")
             print(f"  Dia: {info['dia']}")
             print(f"  Horário: {info['horario']}")
             print(f"  Equipamentos: {', '.join(info['equipamentos'])}")
             print("-" * 30)
-
-
-class Populacao:
-    def __init__(self, tamanho):
-        self.individuos = [PlanoUsoEquipamento() for _ in range(tamanho)]
-
-    def evolui(self, geracoes, taxa_mutacao=0.1):
-        for _ in range(geracoes):
-            # Seleção por torneio
-            pais = []
-            for _ in range(2):
-                competidores = random.sample(self.individuos, 3)
-                pais.append(max(competidores, key=lambda x: x.fitness()))
-
-            # Crossover
-            filho = pais[0].crossover(pais[1])
-
-            # Mutação
-            if random.random() < taxa_mutacao:
-                filho = filho.mutacao()
-
-            # Substituir o pior indivíduo
-            self.individuos.sort(key=lambda x: x.fitness())
-            self.individuos[0] = filho
-
-        return max(self.individuos, key=lambda x: x.fitness())
-
-
-# Exemplo de uso
-if __name__ == "__main__":
-    pop = Populacao(tamanho=50)
-    melhor = pop.evolui(geracoes=100)
-    print("\nMelhor plano encontrado:")
-    melhor.mostrar_plano()
-    print(f"Fitness: {melhor.fitness():.4f}")
